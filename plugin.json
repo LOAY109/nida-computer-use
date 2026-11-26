@@ -1,0 +1,28 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "nida-computer-use",
+  "displayName": "نداء — تحكم كامل بالكمبيوتر",
+  "version": "1.0.0",
+  "description": "تحكم كامل ومباشر بجهاز ويندوز للاستخدام الشخصي مع واجهة عربية عائمة للإيقاف والتحكم الفوري وتواصل صوتي عربي تفاعلي.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "/nida-computer-use افتح بريدي الإلكتروني واقرأ آخر الرسائل المهمة وبلغني بالصوت",
+    "/nida-computer-use شغل لوحة التحكم العربية العائمة ورتب ملفات سطح المكتب",
+    "/nida-computer-use افتح المتصفح وابحث عن آخر أخبار الذكاء الاصطناعي واسألني بالصوت قبل أي خطوة مهمة"
+  ],
+  "author": {
+    "name": "LOAY109",
+    "url": "https://github.com/LOAY109"
+  },
+  "repository": "https://github.com/LOAY109/nida-computer-use",
+  "license": "Proprietary",
+  "keywords": [
+    "computer-use",
+    "arabic",
+    "voice",
+    "desktop-automation",
+    "windows",
+    "hud",
+    "personal-agent"
+  ]
+}

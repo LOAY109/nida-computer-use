@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.mp3
+*.wav
+*.png
+.env
+nida_state/
+*.log
+.DS_Store
+Thumbs.db

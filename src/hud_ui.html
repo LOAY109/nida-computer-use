@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>نداء — لوحة التحكم بالكمبيوتر</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0b0d11;
+      --surface: #131720;
+      --surface-2: #1b212e;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.14);
+      --text: #f3f1ec;
+      --text-muted: #8e96a6;
+      --emerald: #10b981;
+      --emerald-dim: rgba(16, 185, 129, 0.14);
+      --amber: #f59e0b;
+      --amber-dim: rgba(245, 158, 11, 0.15);
+      --crimson: #ef4444;
+      --crimson-dim: rgba(239, 68, 68, 0.16);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --font: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 12px;
+      gap: 10px;
+      background:
+        radial-gradient(120% 60% at 100% 0%, rgba(16, 185, 129, 0.06), transparent 55%),
+        var(--bg);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+    .status-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+      background: var(--text-muted);
+      transition: background 0.2s ease, box-shadow 0.2s ease;
+    }
+    .status-dot.running { background: var(--emerald); box-shadow: 0 0 0 4px var(--emerald-dim); animation: pulse 1.8s infinite; }
+    .status-dot.waiting_user, .status-dot.paused { background: var(--amber); box-shadow: 0 0 0 4px var(--amber-dim); }
+    .status-dot.stopped { background: var(--crimson); box-shadow: 0 0 0 4px var(--crimson-dim); }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.18); opacity: 0.78; }
+    }
+
+    .brand-text { display: flex; flex-direction: column; min-width: 0; }
+    .brand-title { font-size: 14px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 6px; }
+
+    .mode-badge {
+      font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+      background: var(--emerald-dim); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.25); white-space: nowrap;
+    }
+
+    .status-label { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .header-actions { display: flex; align-items: center; gap: 6px; }
+
+    .icon-btn {
+      width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border);
+      background: var(--surface-2); color: var(--text-muted);
+      display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.16s ease;
+    }
+    .icon-btn:hover { color: var(--text); border-color: var(--border-strong); background: #222938; }
+    .icon-btn.active { color: var(--emerald); border-color: rgba(16, 185, 129, 0.35); background: var(--emerald-dim); }
+
+    .controls { display: grid; grid-template-columns: 1.45fr 1fr auto; gap: 8px; }
+
+    .btn {
+      height: 42px; padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer;
+      transition: transform 0.12s ease, background 0.16s ease, border-color 0.16s ease;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-stop { background: var(--crimson); color: #ffffff; border-color: rgba(255, 255, 255, 0.12); }
+    .btn-stop:hover { background: #dc2626; }
+    .btn-pause { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
+    .btn-pause:hover { background: var(--surface-2); }
+    .btn-pause.resume { background: var(--emerald-dim); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.35); }
+    .btn-reset { width: 42px; padding: 0; background: var(--surface); color: var(--text-muted); }
+    .btn-reset:hover { color: var(--text); background: var(--surface-2); }
+
+    .step-card {
+      padding: 11px 13px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); display: flex; flex-direction: column; gap: 4px;
+    }
+    .step-meta { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-muted); }
+    .step-text { font-size: 13.5px; font-weight: 500; color: var(--text); user-select: text; }
+
+    .question-card {
+      display: none; flex-direction: column; gap: 10px; padding: 13px;
+      background: linear-gradient(180deg, rgba(245, 158, 11, 0.12), rgba(19, 23, 32, 0.96));
+      border: 1px solid rgba(245, 158, 11, 0.42); border-radius: var(--radius);
+    }
+    .question-card.visible { display: flex; }
+    .question-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 700; color: #fcd34d; }
+    .question-body { font-size: 14.5px; font-weight: 600; color: var(--text); line-height: 1.6; user-select: text; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(245, 158, 11, 0.35);
+      background: rgba(245, 158, 11, 0.1); color: #fef3c7; font-family: var(--font);
+      font-size: 12.5px; font-weight: 600; cursor: pointer; transition: background 0.15s ease;
+    }
+    .chip:hover { background: rgba(245, 158, 11, 0.24); }
+
+    .input-bar {
+      display: flex; align-items: center; gap: 7px; padding: 7px;
+      background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius);
+    }
+    .input-bar input {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--text); font-family: var(--font); font-size: 13.5px; padding: 4px 6px; min-width: 0;
+    }
+    .input-bar input::placeholder { color: var(--text-muted); }
+
+    .mic-btn {
+      width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--surface-2); color: var(--text);
+      display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: all 0.16s ease;
+    }
+    .mic-btn.recording { background: var(--crimson); border-color: var(--crimson); color: #fff; animation: pulse 1s infinite; }
+
+    .send-btn {
+      height: 38px; padding: 0 13px; border-radius: 10px; border: none;
+      background: var(--emerald); color: #062118; font-family: var(--font); font-size: 13px; font-weight: 700; cursor: pointer; flex-shrink: 0;
+    }
+    .send-btn:hover { background: #34d399; }
+
+    .settings-panel {
+      display: none; flex-direction: column; gap: 8px; padding: 11px 12px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    }
+    .settings-panel.open { display: flex; }
+    .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; color: var(--text-muted); }
+    .setting-row select {
+      background: var(--surface-2); color: var(--text); border: 1px solid var(--border-strong);
+      border-radius: 8px; padding: 5px 8px; font-family: var(--font); font-size: 12px;
+    }
+
+    .logs-wrap {
+      flex: 1; min-height: 0; display: flex; flex-direction: column;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+    }
+    .logs-head {
+      padding: 8px 12px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; font-weight: 600; color: var(--text-muted);
+    }
+    .logs-list { flex: 1; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+    .log-item {
+      display: flex; align-items: baseline; gap: 8px; font-size: 12.5px;
+      padding: 5px 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.02); user-select: text;
+    }
+    .log-item.voice { border-inline-start: 2px solid var(--amber); }
+    .log-item.user { border-inline-start: 2px solid var(--emerald); }
+    .log-item.stop { border-inline-start: 2px solid var(--crimson); }
+    .log-time { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+    .log-msg { color: var(--text); word-break: break-word; }
+
+    .footer-hint { text-align: center; font-size: 11px; color: var(--text-muted); }
+    .kbd {
+      display: inline-block; padding: 1px 5px; border-radius: 5px; border: 1px solid var(--border-strong);
+      background: var(--surface); color: var(--text); font-size: 10.5px; font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="header pywebview-drag-region">
+      <div class="brand">
+        <span id="statusDot" class="status-dot"></span>
+        <div class="brand-text">
+          <div class="brand-title">
+            <span>نداء</span>
+            <span class="mode-badge">صلاحيات مفتوحة</span>
+          </div>
+          <div id="statusLabel" class="status-label">جاهز للاستخدام الشخصي</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="voiceToggleBtn" class="icon-btn active" title="تفعيل أو كتم الصوت" aria-label="تبديل الصوت">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+          </svg>
+        </button>
+        <button id="settingsBtn" class="icon-btn" title="إعدادات الصوت" aria-label="الإعدادات">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="controls">
+      <button id="stopBtn" class="btn btn-stop">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="5" y="5" width="14" height="14" rx="2"></rect>
+        </svg>
+        <span>إيقاف فوري</span>
+      </button>
+      <button id="pauseBtn" class="btn btn-pause">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+          <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+        </svg>
+        <span id="pauseBtnText">إيقاف مؤقت</span>
+      </button>
+      <button id="resetBtn" class="btn btn-reset" title="إعادة تهيئة للوضع الجاهز" aria-label="إعادة تهيئة">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+      </button>
+    </section>
+
+    <section id="settingsPanel" class="settings-panel">
+      <div class="setting-row">
+        <span>صوت المتحدث العربي</span>
+        <select id="voiceSelect">
+          <option value="ar-SA-HamedNeural">حامد — سعودي (رجالي)</option>
+          <option value="ar-SA-ZariyahNeural">زارية — سعودي (نسائي)</option>
+          <option value="ar-AE-HamdanNeural">حمدان — خليجي (رجالي)</option>
+          <option value="ar-EG-ShakirNeural">شاكر — عربي (رجالي)</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <span>سرعة النطق</span>
+        <select id="rateSelect">
+          <option value="-5%">هادئة</option>
+          <option value="+4%" selected>طبيعية سريعة</option>
+          <option value="+15%">سريعة</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="step-card">
+      <div class="step-meta">
+        <span>الإجراء الحالي</span>
+        <span id="speakingIndicator"></span>
+      </div>
+      <div id="currentStep" class="step-text">جاهز لاستلام الأوامر من أنتي جرافيتي</div>
+    </section>
+
+    <section id="questionCard" class="question-card">
+      <div class="question-head">
+        <span>أنتي جرافيتي يسألك بالصوت</span>
+        <span>بانتظار ردك</span>
+      </div>
+      <div id="questionBody" class="question-body"></div>
+      <div id="questionChips" class="chips"></div>
+    </section>
+
+    <section class="input-bar">
+      <button id="micBtn" class="mic-btn" title="تحدث بالعربية" aria-label="تسجيل صوتي">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+      </button>
+      <input id="commandInput" type="text" placeholder="رد بالصوت أو اكتب توجيهك المباشر هنا..." />
+      <button id="sendBtn" class="send-btn">إرسال</button>
+    </section>
+
+    <section class="logs-wrap">
+      <div class="logs-head">
+        <span>سجل التنفيذ المباشر</span>
+        <span id="logCount">0 خطوات</span>
+      </div>
+      <div id="logsList" class="logs-list"></div>
+    </section>
+
+    <div class="footer-hint">
+      اختصار الإيقاف الفوري من أي مكان: <span class="kbd">Ctrl+Shift+X</span> أو ضغط <span class="kbd">Esc</span> مرتين
+    </div>
+  </div>
+
+  <script>
+    const STATUS_MAP = {
+      idle: 'جاهز للاستخدام الشخصي',
+      running: 'يعمل الآن على جهازك',
+      paused: 'متوقف مؤقتاً',
+      waiting_user: 'بانتظار ردك بالصوت أو الكتابة',
+      stopped: 'تم الإيقاف الفوري'
+    };
+
+    let currentState = null;
+    let isRecording = false;
+    let recognition = null;
+    const $ = (id) => document.getElementById(id);
+
+    async function postJSON(url, body) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {})
+      });
+      return res.json();
+    }
+
+    function renderState(st) {
+      currentState = st;
+      $('statusDot').className = 'status-dot ' + (st.status || 'idle');
+      $('statusLabel').textContent = STATUS_MAP[st.status] || st.status;
+      $('currentStep').textContent = st.current_step || 'جاهز';
+      $('speakingIndicator').textContent = st.is_speaking ? 'يتحدث الآن...' : '';
+
+      const pauseBtn = $('pauseBtn');
+      const pauseText = $('pauseBtnText');
+      if (st.status === 'paused' || st.status === 'stopped') {
+        pauseBtn.classList.add('resume');
+        pauseText.textContent = 'استئناف';
+      } else {
+        pauseBtn.classList.remove('resume');
+        pauseText.textContent = 'إيقاف مؤقت';
+      }
+
+      $('voiceToggleBtn').classList.toggle('active', !!st.voice_enabled);
+      if (st.tts_voice) $('voiceSelect').value = st.tts_voice;
+      if (st.tts_rate) $('rateSelect').value = st.tts_rate;
+
+      const qCard = $('questionCard');
+      const pq = st.pending_question;
+      if (pq) {
+        qCard.classList.add('visible');
+        $('questionBody').textContent = pq.question;
+        const chipsWrap = $('questionChips');
+        chipsWrap.innerHTML = '';
+        (pq.options || []).forEach((opt) => {
+          const btn = document.createElement('button');
+          btn.className = 'chip';
+          btn.textContent = opt;
+          btn.onclick = () => submitReply(pq.id, opt, 'chip');
+          chipsWrap.appendChild(btn);
+        });
+      } else {
+        qCard.classList.remove('visible');
+      }
+
+      const logs = st.logs || [];
+      $('logCount').textContent = logs.length + ' خطوات';
+      const list = $('logsList');
+      list.innerHTML = '';
+      logs.forEach((entry) => {
+        const row = document.createElement('div');
+        row.className = 'log-item ' + (entry.level || 'action');
+        row.innerHTML = `<span class="log-time">${entry.time}</span><span class="log-msg"></span>`;
+        row.querySelector('.log-msg').textContent = entry.message;
+        list.appendChild(row);
+      });
+    }
+
+    async function poll() {
+      try {
+        const res = await fetch('/api/state');
+        const data = await res.json();
+        renderState(data);
+      } catch (e) {}
+    }
+
+    async function submitReply(qid, text, via = 'text') {
+      await postJSON('/api/reply', { question_id: qid, answer: text, via });
+      $('commandInput').value = '';
+      poll();
+    }
+
+    async function sendCommand(via = 'text') {
+      const val = $('commandInput').value.trim();
+      if (!val) return;
+      if (currentState && currentState.pending_question) {
+        await submitReply(currentState.pending_question.id, val, via);
+      } else {
+        await postJSON('/api/command', { text: val, via });
+        $('commandInput').value = '';
+        poll();
+      }
+    }
+
+    $('stopBtn').onclick = () => postJSON('/api/control', { action: 'stop' }).then(poll);
+    $('pauseBtn').onclick = () => {
+      const act = currentState && (currentState.status === 'paused' || currentState.status === 'stopped') ? 'resume' : 'pause';
+      postJSON('/api/control', { action: act }).then(poll);
+    };
+    $('resetBtn').onclick = () => postJSON('/api/control', { action: 'reset' }).then(poll);
+    $('voiceToggleBtn').onclick = () => postJSON('/api/settings', { voice_enabled: !(currentState && currentState.voice_enabled) }).then(poll);
+    $('settingsBtn').onclick = () => $('settingsPanel').classList.toggle('open');
+    $('voiceSelect').onchange = (e) => postJSON('/api/settings', { tts_voice: e.target.value }).then(poll);
+    $('rateSelect').onchange = (e) => postJSON('/api/settings', { tts_rate: e.target.value }).then(poll);
+    $('sendBtn').onclick = () => sendCommand('text');
+    $('commandInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCommand('text'); });
+
+    async function toggleMic() {
+      const btn = $('micBtn');
+      if (isRecording) {
+        if (recognition) recognition.stop();
+        isRecording = false;
+        btn.classList.remove('recording');
+        return;
+      }
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRec) {
+        recognition = new SpeechRec();
+        recognition.lang = 'ar-SA';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+        isRecording = true;
+        btn.classList.add('recording');
+        recognition.onresult = (event) => {
+          $('commandInput').value = event.results[0][0].transcript;
+          sendCommand('voice');
+        };
+        recognition.onerror = () => { isRecording = false; btn.classList.remove('recording'); };
+        recognition.onend = () => { isRecording = false; btn.classList.remove('recording'); };
+        recognition.start();
+      } else {
+        isRecording = true;
+        btn.classList.add('recording');
+        try {
+          const res = await postJSON('/api/listen', { timeout: 8 });
+          if (res.ok && res.transcript) {
+            $('commandInput').value = res.transcript;
+            await sendCommand('voice');
+          }
+        } finally {
+          isRecording = false;
+          btn.classList.remove('recording');
+        }
+      }
+    }
+
+    $('micBtn').onclick = toggleMic;
+    poll();
+    setInterval(poll, 700);
+  </script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "nida-desktop": {
+      "command": "${PLUGIN_ROOT}/.venv/Scripts/python.exe",
+      "args": [
+        "${PLUGIN_ROOT}/src/mcp_server.py"
+      ],
+      "env": {
+        "NIDA_DATA_DIR": "${PLUGIN_DATA}",
+        "NIDA_PLUGIN_ROOT": "${PLUGIN_ROOT}",
+        "NIDA_PERSONAL_UNRESTRICTED": "1",
+        "NIDA_TTS_VOICE": "ar-SA-HamedNeural",
+        "NIDA_HUD_PORT": "8765"
+      }
+    }
+  }
+}
