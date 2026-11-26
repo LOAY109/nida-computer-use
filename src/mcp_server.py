@@ -1,4 +1,4 @@
-"""Google Antigravity MCP Server for Nida Computer Use (Arabic Voice + Floating HUD + Full Personal Control)."""
+"""Google Antigravity MCP Server for Nida Computer Use (Visual Desktop Control + Real Chrome + Arabic Voice + Floating HUD)."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def _http_get(path: str, timeout: float = 2.0) -> dict[str, Any]:
         return json.loads(resp.read().decode("utf-8"))
 
 
-def _http_post(path: str, payload: dict[str, Any], timeout: float = 10.0) -> dict[str, Any]:
+def _http_post(path: str, payload: dict[str, Any], timeout: float = 35.0) -> dict[str, Any]:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
         f"{cfg.hud_base_url}{path}",
@@ -41,8 +41,18 @@ def _http_post(path: str, payload: dict[str, Any], timeout: float = 10.0) -> dic
         return json.loads(resp.read().decode("utf-8"))
 
 
+def _gui_python_executable() -> str:
+    """Use pythonw.exe on Windows if available so no stray black CMD window pops up for the HUD."""
+    py = Path(sys.executable)
+    if sys.platform == "win32":
+        pyw = py.with_name("pythonw.exe")
+        if pyw.exists():
+            return str(pyw)
+    return str(py)
+
+
 def ensure_hud_running() -> bool:
-    """Guarantees the local Control Hub and Floating Arabic HUD are active."""
+    """Guarantees the local Control Hub and Floating Arabic HUD window are visibly open on the main screen."""
     try:
         res = _http_get("/api/health", timeout=0.6)
         if res.get("ok"):
@@ -55,19 +65,17 @@ def ensure_hud_running() -> bool:
 
     creationflags = 0
     if sys.platform == "win32":
-        creationflags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(
-            subprocess, "CREATE_NEW_PROCESS_GROUP", 0
-        )
+        creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
 
     subprocess.Popen(
-        [sys.executable, "-m", "src.hud_app"],
+        [_gui_python_executable(), "-m", "src.hud_app"],
         cwd=str(cfg.plugin_root),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         creationflags=creationflags,
     )
 
-    for _ in range(30):
+    for _ in range(35):
         time.sleep(0.15)
         try:
             if _http_get("/api/health", timeout=0.6).get("ok"):
@@ -124,7 +132,7 @@ def _begin_action(step_label: str) -> None:
 
 @mcp.tool()
 def hud_launch() -> str:
-    """Launch and verify the Floating Arabic Control HUD window."""
+    """Launch and verify the Floating Arabic Control HUD window on the user's main screen."""
     ok = ensure_hud_running()
     return json.dumps(
         {"ok": ok, "hud_url": cfg.hud_base_url, "unrestricted_mode": cfg.unrestricted_personal_mode},
@@ -141,13 +149,13 @@ def hud_status() -> str:
 
 
 @mcp.tool()
-def voice_speak(message: str, blocking: bool = False) -> str:
-    """Speak a natural Arabic status update aloud to the user instead of only replying in chat."""
+def voice_speak(message: str, blocking: bool = True) -> str:
+    """Speak a natural Arabic update aloud to the user via speakers (waits for full audio playback by default so voice never cuts off)."""
     ensure_hud_running()
     res = _http_post(
         "/api/internal/speak",
         {"text": message, "blocking": blocking},
-        timeout=30.0 if blocking else 5.0,
+        timeout=45.0 if blocking else 5.0,
     )
     return json.dumps(_attach_user_steering(res), ensure_ascii=False)
 
@@ -173,8 +181,8 @@ def voice_ask(
 
 
 @mcp.tool()
-def screen_capture(annotate_grid: bool = False, monitor_index: int = 1) -> list[Any]:
-    """Capture the current Windows desktop screen and return both the image and exact screen dimensions."""
+def screen_capture(annotate_grid: bool = True, monitor_index: int = 1) -> list[Any]:
+    """Capture the user's real Windows desktop screen and return both the image and exact screen dimensions."""
     try:
         _begin_action("التقاط لقطة شاشة لتحليل الواجهة")
         shot = engine.capture_screen(monitor_index=monitor_index, annotate_grid=annotate_grid)
@@ -189,6 +197,17 @@ def screen_capture(annotate_grid: bool = False, monitor_index: int = 1) -> list[
 
 
 @mcp.tool()
+def mouse_move(x: int, y: int, from_scaled_image: bool = False) -> str:
+    """Visibly move the user's real mouse cursor smoothly to (x, y)."""
+    try:
+        _begin_action(f"تحريك الفأرة إلى ({x}, {y})")
+        res = engine.move(x, y, from_scaled_image=from_scaled_image)
+        return json.dumps(_attach_user_steering(res), ensure_ascii=False)
+    except EmergencyStopError as exc:
+        return json.dumps({"stopped": True, "error": str(exc)}, ensure_ascii=False)
+
+
+@mcp.tool()
 def mouse_click(
     x: int,
     y: int,
@@ -196,9 +215,9 @@ def mouse_click(
     clicks: int = 1,
     from_scaled_image: bool = False,
 ) -> str:
-    """Click at (x, y) on the screen."""
+    """Visibly glide the real mouse to (x, y) and click."""
     try:
-        _begin_action(f"النقر عند ({x}, {y})")
+        _begin_action(f"النقر الحقيقي عند ({x}, {y})")
         res = engine.click(x, y, button=button, clicks=clicks, from_scaled_image=from_scaled_image)
         return json.dumps(_attach_user_steering(res), ensure_ascii=False)
     except EmergencyStopError as exc:
@@ -211,12 +230,12 @@ def mouse_drag(
     y1: int,
     x2: int,
     y2: int,
-    duration: float = 0.35,
+    duration: float = 0.4,
     from_scaled_image: bool = False,
 ) -> str:
-    """Drag the mouse from (x1, y1) to (x2, y2)."""
+    """Drag the real mouse from (x1, y1) to (x2, y2)."""
     try:
-        _begin_action(f"سحب المؤشر من ({x1},{y1}) إلى ({x2},{y2})")
+        _begin_action(f"سحب الفأرة من ({x1},{y1}) إلى ({x2},{y2})")
         res = engine.drag(x1, y1, x2, y2, duration=duration, from_scaled_image=from_scaled_image)
         return json.dumps(_attach_user_steering(res), ensure_ascii=False)
     except EmergencyStopError as exc:
@@ -236,7 +255,7 @@ def mouse_scroll(amount: int, x: Optional[int] = None, y: Optional[int] = None) 
 
 @mcp.tool()
 def keyboard_type(text: str, press_enter: bool = False) -> str:
-    """Type Arabic or English text reliably at the active cursor."""
+    """Type Arabic or English text reliably into the focused real desktop app."""
     try:
         _begin_action("كتابة نص على الشاشة")
         res = engine.type_text(text, press_enter=press_enter)
@@ -247,7 +266,7 @@ def keyboard_type(text: str, press_enter: bool = False) -> str:
 
 @mcp.tool()
 def keyboard_hotkey(keys: list[str]) -> str:
-    """Press a key or keyboard shortcut, e.g. ['ctrl', 'c'] or ['win', 'r'] or ['enter']."""
+    """Press a key or keyboard shortcut, e.g. ['ctrl', 't'] or ['ctrl', 'l'] or ['enter']."""
     try:
         _begin_action(f"ضغط الاختصار {' + '.join(keys)}")
         res = engine.hotkey(keys)
@@ -258,7 +277,7 @@ def keyboard_hotkey(keys: list[str]) -> str:
 
 @mcp.tool()
 def window_list() -> str:
-    """List all open desktop windows with their titles and positions."""
+    """List all open real Windows desktop windows with their titles and positions."""
     try:
         _begin_action("فحص النوافذ المفتوحة")
         return json.dumps(_attach_user_steering({"windows": engine.list_windows()}), ensure_ascii=False)
@@ -268,7 +287,7 @@ def window_list() -> str:
 
 @mcp.tool()
 def window_focus(title_query: str) -> str:
-    """Bring a window matching title_query to the foreground."""
+    """Bring a real desktop window matching title_query to the foreground."""
     try:
         _begin_action(f"الانتقال إلى نافذة: {title_query}")
         return json.dumps(_attach_user_steering(engine.focus_window(title_query)), ensure_ascii=False)
@@ -277,8 +296,18 @@ def window_focus(title_query: str) -> str:
 
 
 @mcp.tool()
+def browser_open_real(url: str = "") -> str:
+    """Open a URL in the user's REAL active desktop browser (or Google Chrome by default) — NEVER Antigravity's built-in browser."""
+    try:
+        _begin_action(f"فتح متصفحك الحقيقي: {url or 'Chrome'}")
+        return json.dumps(_attach_user_steering(engine.open_in_user_browser(url)), ensure_ascii=False)
+    except EmergencyStopError as exc:
+        return json.dumps({"stopped": True, "error": str(exc)}, ensure_ascii=False)
+
+
+@mcp.tool()
 def app_launch(target: str, args: str = "") -> str:
-    """Launch any Windows app, executable, file, or folder directly without restrictions."""
+    """Launch any real Windows desktop app, executable, or folder directly without restrictions."""
     try:
         _begin_action(f"تشغيل التطبيق: {target}")
         return json.dumps(_attach_user_steering(engine.launch_app(target, args=args)), ensure_ascii=False)
@@ -287,28 +316,8 @@ def app_launch(target: str, args: str = "") -> str:
 
 
 @mcp.tool()
-def url_open(url: str) -> str:
-    """Open any website or web app (e.g. Gmail, Outlook, GitHub) directly in the user's browser."""
-    try:
-        _begin_action(f"فتح الرابط: {url}")
-        return json.dumps(_attach_user_steering(engine.open_url(url)), ensure_ascii=False)
-    except EmergencyStopError as exc:
-        return json.dumps({"stopped": True, "error": str(exc)}, ensure_ascii=False)
-
-
-@mcp.tool()
-def shell_run(command: str, timeout: int = 30) -> str:
-    """Run a PowerShell command directly on the user's PC (unrestricted personal mode)."""
-    try:
-        _begin_action("تنفيذ أمر نظام مباشر")
-        return json.dumps(_attach_user_steering(engine.run_shell(command, timeout=timeout)), ensure_ascii=False)
-    except EmergencyStopError as exc:
-        return json.dumps({"stopped": True, "error": str(exc)}, ensure_ascii=False)
-
-
-@mcp.tool()
 def ui_tree(max_elements: int = 60) -> str:
-    """Inspect UIAutomation elements (buttons, text fields, links + center coordinates) of the active window."""
+    """Inspect Windows UIAutomation controls (buttons, inputs, links + exact center coordinates) of the active window."""
     try:
         _begin_action("قراءة عناصر الواجهة التفاعلية")
         return json.dumps(_attach_user_steering(engine.get_ui_tree(max_elements=max_elements)), ensure_ascii=False)
@@ -318,9 +327,9 @@ def ui_tree(max_elements: int = 60) -> str:
 
 @mcp.tool()
 def plan_run(steps: list[dict[str, Any]]) -> str:
-    """Execute multiple desktop actions in a single call with instant stop/pause checks between every step."""
+    """Execute multiple visible desktop mouse/keyboard/browser actions in one call with instant stop checks."""
     try:
-        _begin_action(f"تنفيذ خطة من {len(steps)} خطوات")
+        _begin_action(f"تنفيذ خطة مرئية من {len(steps)} خطوات")
         return json.dumps(_attach_user_steering(engine.run_plan(steps)), ensure_ascii=False)
     except EmergencyStopError as exc:
         return json.dumps({"stopped": True, "error": str(exc)}, ensure_ascii=False)

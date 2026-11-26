@@ -1,4 +1,4 @@
-"""Unrestricted Personal Desktop Automation Engine for Windows (Nida Computer Use)."""
+"""Unrestricted Personal Desktop Automation Engine for Windows (Visible Real Mouse + Real Chrome/Browser)."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import base64
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -20,8 +21,47 @@ class EmergencyStopError(RuntimeError):
     """Raised immediately when the user activates Emergency Stop in the HUD or via hotkey."""
 
 
+def find_browser_executable(browser: str = "chrome") -> Optional[str]:
+    """Locate real installed Windows browsers even when they are not on PATH."""
+    name = browser.lower()
+    if sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA", "")
+        pf = os.environ.get("PROGRAMFILES", r"C:\Program Files")
+        pf86 = os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)")
+
+        candidates_map = {
+            "chrome": [
+                Path(pf) / "Google/Chrome/Application/chrome.exe",
+                Path(pf86) / "Google/Chrome/Application/chrome.exe",
+                Path(local) / "Google/Chrome/Application/chrome.exe",
+            ],
+            "edge": [
+                Path(pf86) / "Microsoft/Edge/Application/msedge.exe",
+                Path(pf) / "Microsoft/Edge/Application/msedge.exe",
+                Path(local) / "Microsoft/Edge/Application/msedge.exe",
+            ],
+            "brave": [
+                Path(pf) / "BraveSoftware/Brave-Browser/Application/brave.exe",
+                Path(local) / "BraveSoftware/Brave-Browser/Application/brave.exe",
+            ],
+            "firefox": [
+                Path(pf) / "Mozilla Firefox/firefox.exe",
+                Path(pf86) / "Mozilla Firefox/firefox.exe",
+            ],
+            "opera": [
+                Path(local) / "Programs/Opera/opera.exe",
+                Path(local) / "Programs/Opera GX/opera.exe",
+            ],
+        }
+        for path in candidates_map.get(name, []):
+            if path.exists():
+                return str(path)
+
+    return shutil.which(name)
+
+
 class DesktopEngine:
-    """Drives the user's real screen, mouse, keyboard, apps, and shell with zero artificial blocks."""
+    """Drives the user's real screen, visible mouse, keyboard, real Chrome/browser, and desktop apps."""
 
     def __init__(
         self,
@@ -41,7 +81,7 @@ class DesktopEngine:
             import pyautogui
 
             pyautogui.FAILSAFE = False
-            pyautogui.PAUSE = max(0.02, self.config.action_delay_ms / 1000.0)
+            pyautogui.PAUSE = max(0.03, self.config.action_delay_ms / 1000.0)
         except Exception:
             pass
 
@@ -140,6 +180,25 @@ class DesktopEngine:
             "image_base64_jpeg": b64,
         }
 
+    def move(
+        self,
+        x: int,
+        y: int,
+        duration: float = 0.28,
+        from_scaled_image: bool = False,
+    ) -> dict[str, Any]:
+        """Smoothly glide the real mouse cursor so the user visually sees every movement."""
+        self.check_control()
+        import pyautogui
+
+        rx, ry = self._to_real_coords(x, y, normalized=from_scaled_image)
+        tween = getattr(pyautogui, "easeOutQuad", None)
+        if tween:
+            pyautogui.moveTo(rx, ry, duration=max(0.12, duration), tween=tween)
+        else:
+            pyautogui.moveTo(rx, ry, duration=max(0.12, duration))
+        return {"ok": True, "x": rx, "y": ry}
+
     def click(
         self,
         x: int,
@@ -147,22 +206,21 @@ class DesktopEngine:
         button: str = "left",
         clicks: int = 1,
         from_scaled_image: bool = False,
+        move_duration: float = 0.28,
     ) -> dict[str, Any]:
         self.check_control()
         import pyautogui
 
         rx, ry = self._to_real_coords(x, y, normalized=from_scaled_image)
-        pyautogui.click(x=rx, y=ry, clicks=clicks, button=button)
-        self._log(f"نقر ({button} ×{clicks}) عند ({rx}, {ry})", "action")
-        return {"ok": True, "x": rx, "y": ry, "button": button, "clicks": clicks}
-
-    def move(self, x: int, y: int, duration: float = 0.15, from_scaled_image: bool = False) -> dict[str, Any]:
+        tween = getattr(pyautogui, "easeOutQuad", None)
+        if tween:
+            pyautogui.moveTo(rx, ry, duration=max(0.12, move_duration), tween=tween)
+        else:
+            pyautogui.moveTo(rx, ry, duration=max(0.12, move_duration))
         self.check_control()
-        import pyautogui
-
-        rx, ry = self._to_real_coords(x, y, normalized=from_scaled_image)
-        pyautogui.moveTo(rx, ry, duration=duration)
-        return {"ok": True, "x": rx, "y": ry}
+        pyautogui.click(x=rx, y=ry, clicks=clicks, button=button)
+        self._log(f"نقر حقيقي ({button} ×{clicks}) عند ({rx}, {ry})", "action")
+        return {"ok": True, "x": rx, "y": ry, "button": button, "clicks": clicks}
 
     def drag(
         self,
@@ -170,7 +228,7 @@ class DesktopEngine:
         y1: int,
         x2: int,
         y2: int,
-        duration: float = 0.35,
+        duration: float = 0.4,
         button: str = "left",
         from_scaled_image: bool = False,
     ) -> dict[str, Any]:
@@ -179,9 +237,10 @@ class DesktopEngine:
 
         sx, sy = self._to_real_coords(x1, y1, normalized=from_scaled_image)
         ex, ey = self._to_real_coords(x2, y2, normalized=from_scaled_image)
-        pyautogui.moveTo(sx, sy, duration=0.1)
+        pyautogui.moveTo(sx, sy, duration=0.22)
+        self.check_control()
         pyautogui.dragTo(ex, ey, duration=duration, button=button)
-        self._log(f"سحب من ({sx},{sy}) إلى ({ex},{ey})", "action")
+        self._log(f"سحب الفأرة من ({sx},{sy}) إلى ({ex},{ey})", "action")
         return {"ok": True, "from": [sx, sy], "to": [ex, ey]}
 
     def scroll(
@@ -196,6 +255,7 @@ class DesktopEngine:
 
         if x is not None and y is not None:
             rx, ry = self._to_real_coords(x, y, normalized=from_scaled_image)
+            pyautogui.moveTo(rx, ry, duration=0.2)
             pyautogui.scroll(amount, x=rx, y=ry)
         else:
             pyautogui.scroll(amount)
@@ -216,7 +276,7 @@ class DesktopEngine:
             except Exception:
                 pass
             pyperclip.copy(text)
-            time.sleep(0.05)
+            time.sleep(0.06)
             pyautogui.hotkey("ctrl", "v")
             time.sleep(0.08)
             try:
@@ -225,7 +285,7 @@ class DesktopEngine:
                 pass
             method = "unicode_clipboard_paste"
         else:
-            pyautogui.write(text, interval=0.015)
+            pyautogui.write(text, interval=0.02)
             method = "direct_keys"
 
         if press_enter:
@@ -278,22 +338,76 @@ class DesktopEngine:
 
         q = title_query.lower().strip()
         for win in gw.getAllWindows():
-            if q in (win.title or "").lower():
+            title = win.title or ""
+            if "نداء" in title and "نداء" not in q:
+                continue
+            if q in title.lower():
                 try:
                     if win.isMinimized:
                         win.restore()
                     win.activate()
-                    self._log(f"التركيز على النافذة: {win.title}", "action")
-                    return {"ok": True, "title": win.title}
+                    time.sleep(0.25)
+                    self._log(f"التركيز على النافذة: {title}", "action")
+                    return {"ok": True, "title": title}
                 except Exception as exc:
                     return {"ok": False, "error": str(exc)}
         return {"ok": False, "error": f"لم يتم العثور على نافذة تطابق: {title_query}"}
+
+    def open_in_user_browser(self, url: str = "") -> dict[str, Any]:
+        """Opens the user's real active browser (or Google Chrome by default) — NEVER Antigravity's built-in browser."""
+        self.check_control()
+        browser_signatures = [
+            ("chrome", "google chrome"),
+            ("edge", "microsoft edge"),
+            ("brave", "brave"),
+            ("firefox", "mozilla firefox"),
+            ("opera", "opera"),
+        ]
+        detected_browser: Optional[str] = None
+        detected_title: Optional[str] = None
+        try:
+            for win in self.list_windows():
+                title = str(win.get("title", ""))
+                low = title.lower()
+                if "نداء" in title or "127.0.0.1:8765" in low:
+                    continue
+                for bkey, sig in browser_signatures:
+                    if sig in low:
+                        detected_browser = bkey
+                        detected_title = title
+                        break
+                if detected_browser:
+                    break
+        except Exception:
+            pass
+
+        chosen = detected_browser or "chrome"
+        exe = find_browser_executable(chosen) or find_browser_executable("chrome") or find_browser_executable("edge")
+
+        if exe:
+            cmd = [exe, url] if url else [exe]
+            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            time.sleep(0.6)
+            if detected_title:
+                self.focus_window(detected_title)
+            else:
+                self.focus_window("chrome" if "chrome" in exe.lower() else "edge")
+            self._log(f"فتح متصفحك الحقيقي ({Path(exe).stem})" + (f": {url}" if url else ""), "action")
+            return {"ok": True, "browser": Path(exe).stem, "exe": exe, "url": url}
+
+        if url:
+            webbrowser.open(url)
+            self._log(f"فتح الرابط في المتصفح الافتراضي: {url}", "action")
+            return {"ok": True, "browser": "default", "url": url}
+        return {"ok": False, "error": "لم يتم العثور على متصفح مثبت على الجهاز."}
 
     def launch_app(self, target: str, args: str = "") -> dict[str, Any]:
         """Open any local Windows application, executable, folder, or protocol unrestricted."""
         self.check_control()
         self._log(f"تشغيل تطبيق: {target}", "action")
         if sys.platform == "win32":
+            if target.lower() in ("chrome", "google chrome"):
+                return self.open_in_user_browser(args)
             if args:
                 subprocess.Popen(f'start "" "{target}" {args}', shell=True)
             else:
@@ -301,36 +415,6 @@ class DesktopEngine:
             return {"ok": True, "launched": target, "args": args}
         subprocess.Popen([target] + (args.split() if args else []))
         return {"ok": True, "launched": target}
-
-    def open_url(self, url: str) -> dict[str, Any]:
-        self.check_control()
-        self._log(f"فتح رابط: {url}", "action")
-        webbrowser.open(url)
-        return {"ok": True, "url": url}
-
-    def run_shell(self, command: str, timeout: int = 30) -> dict[str, Any]:
-        """Execute PowerShell/shell commands directly in unrestricted personal mode."""
-        self.check_control()
-        self._log(f"تنفيذ أمر نظام: {command[:50]}", "action")
-        shell_cmd = (
-            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command]
-            if sys.platform == "win32"
-            else ["bash", "-lc", command]
-        )
-        proc = subprocess.run(
-            shell_cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            encoding="utf-8",
-            errors="replace",
-        )
-        return {
-            "ok": proc.returncode == 0,
-            "returncode": proc.returncode,
-            "stdout": proc.stdout[-4000:],
-            "stderr": proc.stderr[-2000:],
-        }
 
     def get_ui_tree(self, max_elements: int = 60) -> dict[str, Any]:
         """Inspect interactive UI controls of the active foreground window on Windows via UIA."""
@@ -373,17 +457,24 @@ foreach ($el in $els) {{
 }}
 $out | ConvertTo-Json -Compress
 """
-        res = self.run_shell(ps_script, timeout=15)
+        proc = subprocess.run(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_script],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            encoding="utf-8",
+            errors="replace",
+        )
         try:
-            parsed = json.loads(res["stdout"].strip() or "[]")
+            parsed = json.loads(proc.stdout.strip() or "[]")
             if isinstance(parsed, dict):
                 parsed = [parsed]
             return {"ok": True, "elements": parsed}
         except Exception:
-            return {"ok": False, "raw": res["stdout"], "stderr": res["stderr"]}
+            return {"ok": False, "raw": proc.stdout, "stderr": proc.stderr}
 
     def run_plan(self, steps: list[dict[str, Any]]) -> dict[str, Any]:
-        """Execute a multi-step batch plan with per-step emergency stop/pause verification."""
+        """Execute a multi-step visual desktop plan with smooth mouse motion and per-step stop checks."""
         results = []
         for idx, step in enumerate(steps, start=1):
             self.check_control()
@@ -422,8 +513,8 @@ $out | ConvertTo-Json -Compress
                 r = {"ok": True, "waited_ms": ms}
             elif kind == "launch_app":
                 r = self.launch_app(str(step["target"]), str(step.get("args", "")))
-            elif kind == "open_url":
-                r = self.open_url(str(step["url"]))
+            elif kind in ("open_url", "browser_open_real"):
+                r = self.open_in_user_browser(str(step.get("url", "")))
             elif kind == "focus_window":
                 r = self.focus_window(str(step["title"]))
             else:
